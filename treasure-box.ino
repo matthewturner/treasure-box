@@ -6,13 +6,14 @@ UltraSonicDistanceSensor sensorOpen (11, 10);
 bool isOpen;
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(57600);
+  Serial.println("Starting up...");
   servoLid.attach(12);
-  servoLid.write(90);
-  isOpen = false;
+  closeLid();
 }
 
 void loop() {
+  Serial.println("Checking distance...");
   double distance = sensorOpen.measureDistanceCm();
   if (distance == -1) {
     return;
@@ -21,14 +22,28 @@ void loop() {
   Serial.print("Distance: ");
   Serial.println(distance);
 
-  if (distance < 10) {    
-    if (isOpen) {
-      servoLid.write(90);
-    } else {
-      servoLid.write(0);
-    }
-
-    isOpen = !isOpen;
+  if (distance > 10) {
     delay(500);
+    return;
   }
+      
+  if (isOpen) {
+    closeLid();
+  } else {
+    openLid();
+  }
+
+  delay(750);
+}
+
+void openLid() {
+  Serial.println("Opening lid...");
+  servoLid.write(0);
+  isOpen = true;
+}
+
+void closeLid() {
+  Serial.println("Closing lid...");
+  servoLid.write(107);
+  isOpen = false;
 }
