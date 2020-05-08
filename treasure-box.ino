@@ -1,35 +1,50 @@
 #include <Servo.h>
-#include <HCSR04.h>
+#include <MFRC522.h>
 
 Servo servoLid;
 Servo servoLatch;
-UltraSonicDistanceSensor sensorOpen (11, 10);
+MFRC522 sensorOpen(10, 9);
 bool isOpen;
 
 void setup() {
   Serial.begin(57600);
+  while (!Serial);
   Serial.println("Starting up...");
-  servoLid.attach(12);
-  servoLatch.attach(9);
+  SPI.begin();
+  sensorOpen.PCD_Init();
+  delay(4);
+  sensorOpen.PCD_DumpVersionToSerial();
+  Serial.println(F("Scan PICC to see UID, SAK, type, and data blocks..."));
+  
+  servoLid.attach(5);
+  servoLatch.attach(6);
   closeLid();
   lock();
-  sensorOpen.measureDistanceCm();
 }
 
 void loop() {
-  Serial.println("Checking distance...");
-  double distance = sensorOpen.measureDistanceCm();
-  if (distance == -1) {
-    return;
-  }
-  
-  Serial.print("Distance: ");
-  Serial.println(distance);
-
-  if (distance > 5) {
+  if (!sensorOpen.PICC_IsNewCardPresent()) {
     delay(500);
     return;
   }
+
+  if (!sensorOpen.PICC_ReadCardSerial()) {
+    delay(500);
+    return;
+  }
+
+  Serial.print("UID tag: ");
+  String uuid = readUUID();
+  Serial.println(uuid);
+  
+  if (uuid != "D4 37 43 73")
+  {
+    Serial.println("Access denied!");
+    delay(500);
+    return;
+  }
+  
+  Serial.println("Access granted!");
       
   if (isOpen) {
     closeLid();
@@ -54,6 +69,18 @@ void closeLid() {
   servoLid.write(107);
   awaitReposition();
   isOpen = false;
+}
+
+String readUUID() {
+  String content= "";
+  byte letter;
+  for (byte i = 0; i < sensorOpen.uid.size; i++) 
+  {
+     content.concat(String(sensorOpen.uid.uidByte[i] < 0x10 ? " 0" : " "));
+     content.concat(String(sensorOpen.uid.uidByte[i], HEX));
+  }
+  content.toUpperCase();
+  return content.substring(1);
 }
 
 void lock() {
